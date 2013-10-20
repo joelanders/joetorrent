@@ -3,7 +3,7 @@ require 'digest/sha1'
 class Metainfo
   attr_accessor :hash, :tracker
   def self.from_file filename
-    Metainfo.new File.read(filename).force_encoding Encoding::ASCII #hack...
+    Metainfo.new File.open(filename, 'rb') {|f| f.read}
   end
 
   def initialize(bytes)
@@ -15,9 +15,24 @@ class Metainfo
     @hash.to_bencoding
   end
 
-  # i have no patience for the docs today
   def info_hash_hex
-    info_hash.bytes.to_a.map {|b| b.to_s 16}.join ''
+    info_hash.bytes_in_hex
+  end
+
+  def pieces
+    @hash['info']['pieces']
+  end
+
+  def num_pieces
+    pieces.length / 20
+  end
+
+  def pieces_hex
+    arr = []
+    (0...num_pieces).each do |i|
+      arr << pieces.slice(20*i, 20)
+    end
+    arr.map {|p| p.bytes_in_hex}
   end
 
   def info_hash
@@ -26,5 +41,11 @@ class Metainfo
 
   def tracker_uri
     @hash['announce']
+  end
+end
+
+class String
+  def bytes_in_hex
+    self.bytes.map{|b| sprintf "%02x", b}.join('')
   end
 end
