@@ -19,6 +19,10 @@ class Metainfo
     info_hash.bytes_in_hex
   end
 
+  def byte_length
+    @hash['info']['length']
+  end
+
   def pieces
     @hash['info']['pieces']
   end
