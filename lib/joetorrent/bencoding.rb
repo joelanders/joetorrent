@@ -46,7 +46,9 @@ end
 # example: "spam" <-> "4:spam"
 class String
   def self.from_bencoding(benstr)
-    lenstr, str = benstr.split ':'
+    colon_index = benstr.index ':'
+    len = benstr[0...colon_index]
+    str = benstr[colon_index+1..-1]
     str
   end
   def to_bencoding
