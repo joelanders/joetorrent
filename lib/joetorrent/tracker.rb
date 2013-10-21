@@ -7,8 +7,8 @@ class Tracker
   attr_accessor :last_response, :metainfo
   def initialize metainfo
     @metainfo = metainfo
-    @last_response = nil
     @tracker_con = UdpTrackerRequest.new(self)
+    @peers = []
   end
 
   def tracker_uri
@@ -16,7 +16,28 @@ class Tracker
   end
 
   def announce
-    @last_response = @tracker_con.announce
+    res = @last_response = @tracker_con.announce
+    @last_updated = Time.now
+    @interval, @leechers, @seeders = res[8..-1].unpack('L>L>L>')
+    num_peers = (res.length - 20)/6 # should be = to seeds + leeches
+    (0...num_peers).each do |i|
+      offset = (20 + 6*i)
+      ip = res[offset...offset+4].bytes.to_a.join('.')
+      port = res[offset..-1].unpack('S>').first
+      @peers << Peer.new(ip, port)
+    end
+    @peers
+  end
+end
+
+class Peer
+  attr_accessor :ip, :port
+  def initialize ip, port
+    @ip, @port = ip, port
+  end
+
+  def to_s
+    'peer' + sprintf('%16s', ip) + ' ' + sprintf('%-5s', port.to_s)
   end
 end
 
@@ -32,12 +53,6 @@ class UdpTrackerRequest
   def initialize(tracker)
     @tracker = tracker
     @uri = tracker.tracker_uri
-    @last_transaction_id = nil
-    @last_con_resp = nil
-    @last_con_time = nil
-    @last_ann_resp = nil
-    @last_ann_time = nil
-    @connection_id = nil
     r = Resolv::DNS.open({:nameserver=>['208.67.222.222']}) #really?
     @ip = r.getaddress(@uri.host)
   end
@@ -48,50 +63,28 @@ class UdpTrackerRequest
   end
 
   def get_connection_id
-    usock = UDPSocket.new
-    usock.bind('', 6882)
-    puts @ip.to_s
-    puts @uri.port
-    p con_req
-    usock.connect @ip.to_s, @uri.port
-    usock.send con_req, 0
+    res = @last_con_resp = UdpRequest.send con_req, @ip.to_s, @uri.port, 20
     @last_con_time = Time.now
-    @last_con_resp = usock.recvfrom(20,0).first
-    usock.close
-    rec_action = @last_con_resp[0...4]
+    raise "expected 16 bytes: #{res}" unless res.length == 16
+    rec_action = res[0...4]
     raise "action mismatch: #{rec_action}" unless rec_action == CON_REQ_ACT
-    rec_transaction_id = @last_con_resp[4...8]
-    raise "transaction id mismatch: #{rec_transaction_id} " unless
-      rec_transaction_id == @last_transaction_id
-    @connection_id = @last_con_resp[8...16]
+    rec_trans = res[4...8]
+    raise "trans. mismatch: #{rec_trans} " unless rec_trans == @last_trans_id
+    @connection_id = res[8...16]
   end
 
   def get_announce_response
     raise 'no recent con. id' unless @connection_id &&
                                      Time.now - @last_con_time < 60
-    usock = UDPSocket.new
-    usock.bind('', 6882)
-    usock.connect @ip.to_s, @uri.port
-    req = ann_req # this changes @last_transaction_id
-    p req
-    usock.send req, 0
+    res = @last_ann_resp = UdpRequest.send ann_req, @ip.to_s, @uri.port
+    raise "should be >= 20 bytes #{res}" unless res.length >= 20
+    raise "incomplete: #{res}" unless (res.length - 20)%6 == 0
     @last_ann_time = Time.now
-    @last_ann_resp = usock.recvfrom(620,0).first # room for 100 peers
-    usock.close
-    puts "announce response: action, transaction, interval, leech, seed"
-    p @last_ann_resp.unpack('L>L>L>L>L>') # five 32-bit values
-    num_peers = (@last_ann_resp.length - 20) / 6
-    puts "#{num_peers} peers"
-    (0...num_peers).each do |i|
-      puts "ip: " + @last_ann_resp[(20 + 6*i)..-1].unpack('L>').first.to_s
-      puts "pt: " + @last_ann_resp[(24 + 6*i)..-1].unpack('S>').first.to_s
-      puts
-    end
-    @last_ann_resp
+    res
   end
 
   def random_transaction_id
-    @last_transaction_id = Random.new.bytes(4)
+    @last_trans_id = Random.new.bytes(4)
   end
 
   def con_req
@@ -116,6 +109,25 @@ class UdpTrackerRequest
 
     raise "bad ann_req: #{req}" unless req.length == 98
     req
+  end
+end
+
+# recvfrom() man page says it will read the entire message from
+# a SOCK_DGRAM in a single operation.
+class UdpRequest
+  def self.send msg, host, port, buf_size=65535
+    # some rough checks because Errno::EINVAL is cryptic
+    raise "bad msg: #{msg}" unless msg.is_a? String
+    raise "bad host: #{host}" unless host.is_a?(String) &&
+                                     host.match(/(?:\d{1,3}\.){3}\d{1,3}/)
+    raise "bad port: #{port}" unless port.is_a?(Integer)
+    u = UDPSocket.new
+    u.bind('', 6882) # number not import. todo: if bind fails, switch port
+    u.connect host, port
+    u.send msg, 0 # zero is some flags we don't need
+    response = u.recvfrom buf_size # ruby's default is 64k
+    u.close
+    response.first
   end
 end
 
