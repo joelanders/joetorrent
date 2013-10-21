@@ -30,17 +30,6 @@ class Tracker
   end
 end
 
-class Peer
-  attr_accessor :ip, :port
-  def initialize ip, port
-    @ip, @port = ip, port
-  end
-
-  def to_s
-    'peer' + sprintf('%16s', ip) + ' ' + sprintf('%-5s', port.to_s)
-  end
-end
-
 # first we have to get a connection id, then we can do the announce
 class UdpTrackerRequest
   CON_REQ_ID   = "\x00\x00\x04\x17\x27\x10\x19\x80"
