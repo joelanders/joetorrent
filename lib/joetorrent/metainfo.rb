@@ -20,7 +20,13 @@ class Metainfo
   end
 
   def byte_length
-    @hash['info']['length']
+    if @hash['info']['length']   # single file
+      @hash['info']['length']
+    elsif @hash['info']['files'] # multiple files
+      @hash['info']['files'].inject(0) do |total, file|
+        total + file['length']
+      end
+    end
   end
 
   def pieces
