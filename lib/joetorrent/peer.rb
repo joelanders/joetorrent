@@ -18,6 +18,7 @@ class Peer
 end
 
 class Handshake
+  attr_accessor :reply
   def initialize ip, port, info_hash, peer_id
     @ip, @port = ip, port
     @info_hash, @peer_id = info_hash, peer_id
@@ -25,13 +26,20 @@ class Handshake
 
   def shake
     s = Socket.new( Socket::AF_INET, Socket::SOCK_STREAM, 0 )
-    s.connect Socket.pack_sockaddr_in( @port, @ip )
+    begin
+      s.connect_nonblock Socket.pack_sockaddr_in( @port, @ip )
+    rescue IO::WaitWritable
+      raise "connect timeout" unless IO.select [], [s], [], 1
+    end
     s.write msg
-    @reply = ''
-    while @reply.length < 68
-      @reply += s.getc
+    @reply = ''.force_encoding Encoding::BINARY
+    while IO.select([s], [], [], 5) && @reply.length < 68
+      char = s.getc
+      raise "fucking nil" if char.nil?
+      @reply += char
     end
     s.close
+    raise "weird response #{@reply}" unless @reply.length == 68
     @reply
   end
 

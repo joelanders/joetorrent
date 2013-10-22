@@ -4,7 +4,7 @@ require 'resolv'
 
 class Tracker
   PEER_ID = '0123456789testing123'
-  attr_accessor :last_response, :metainfo
+  attr_accessor :last_response, :metainfo, :peers
   def initialize metainfo
     @metainfo = metainfo
     @tracker_con = UdpTrackerRequest.new(self)
