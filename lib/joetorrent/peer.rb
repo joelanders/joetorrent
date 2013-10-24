@@ -34,7 +34,7 @@ class Handshake
     s.write msg
     @reply = ''.force_encoding Encoding::BINARY
     while IO.select([s], [], [], 5) && @reply.length < 68
-      char = s.getc
+      char = s.read 1
       raise "fucking nil" if char.nil?
       @reply += char
     end
