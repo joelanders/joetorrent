@@ -24,7 +24,7 @@ class Tracker
       offset = (20 + 6*i)
       ip = res[offset...offset+4].bytes.to_a.join('.')
       port = res[offset..-1].unpack('S>').first
-      @peers << Peer.new(ip, port)
+      @peers << Peer.new(ip, port, metainfo)
     end
     @peers
   end
