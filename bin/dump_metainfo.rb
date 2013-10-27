@@ -26,5 +26,6 @@ pr = Peer.new '127.0.0.1', 51413, mi
 pr.connect_socket
 pr.do_handshake
 pr.socket.write Message.bitfield([], mi.num_pieces)
+pr.start_event_loop
 
 binding.pry

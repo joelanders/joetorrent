@@ -6,6 +6,7 @@ class Peer
   attr_accessor :am_choking, :am_interested
   attr_accessor :peer_choking, :peer_interested
   attr_accessor :socket
+  attr_accessor :recd_messages
   def initialize ip, port, metainfo
     @ip, @port = ip, port
     @metainfo = metainfo
@@ -13,6 +14,7 @@ class Peer
     @am_interested = false
     @peer_choking = true
     @peer_interested = false
+    @recd_messages = []
   end
 
   # this blocks until it connects; raises if it times out
@@ -28,6 +30,34 @@ class Peer
 
   def do_handshake
     @handshake_reply = Handshake.new(self).shake
+    recd_messages << [Time.now, @handshake_reply]
+  end
+
+  def start_event_loop
+    @thread = Thread.new do
+      puts Thread.current
+      loop do
+        puts "blocking..."
+        IO.select [socket], [], []
+        puts "reading..."
+        length = socket.read(4).unpack('L>').first
+        puts "length: #{length}"
+        if length > 0
+          puts "reading remainder..."
+          msg = socket.read(length)
+        else
+          msg = :keep_alive
+          puts "sending keep_alive..."
+          socket.write Message.keep_alive
+        end
+        puts "recording message..."
+        recd_messages << [Time.now, msg]
+      end
+    end
+  end
+
+  def stop_event_loop
+    Thread.kill @thread
   end
 
   def to_s
