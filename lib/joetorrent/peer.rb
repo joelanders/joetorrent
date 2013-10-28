@@ -23,7 +23,10 @@ class Peer
     begin
       socket.connect_nonblock Socket.pack_sockaddr_in( @port, @ip )
     rescue IO::WaitWritable
-      raise "connect timeout" unless IO.select [], [socket], [], timeout
+      unless IO.select [], [socket], [], timeout
+        socket.close
+        raise "connect timeout"
+      end
     end
     @socket
   end
