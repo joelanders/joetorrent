@@ -10,22 +10,29 @@ p mi.info_hash_hex
 p mi.tracker_uri
 mi.tracker.announce
 #p Hash.from_bencoding mi.tracker.last_response.body.to_s
-#mi.tracker.peers.each do |peer|
-pr = Peer.new '127.0.0.1', 51413, mi
+#pr = Peer.new '127.0.0.1', 51413, mi
 #[pr].each do |peer|
-#  puts peer.ip
-#  puts peer.port
-#  begin
-#    peer.connect_socket
-#    peer.do_handshake
-#  rescue
-#    puts "ERROR " + $!.to_s
-#  end
-#end
 
-pr.connect_socket
-pr.do_handshake
-pr.socket.write Message.bitfield([], mi.num_pieces)
-pr.start_event_loop
+threads = []
+goodps = []
+badps = []
+
+mi.tracker.peers.each do |peer|
+  threads << Thread.new do
+    begin
+      peer.connect_socket 10
+      peer.do_handshake
+      goodps << peer
+    rescue
+      badps << peer
+      peer.socket.close
+    end
+  end
+end
+
+#pr.connect_socket
+#pr.do_handshake
+#pr.socket.write Message.bitfield([], mi.num_pieces)
+#pr.start_event_loop
 
 binding.pry
