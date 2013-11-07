@@ -101,25 +101,6 @@ class UdpTrackerRequest
   end
 end
 
-# recvfrom() man page says it will read the entire message from
-# a SOCK_DGRAM in a single operation.
-class UdpRequest
-  def self.send msg, host, port, buf_size=65535
-    # some rough checks because Errno::EINVAL is cryptic
-    raise "bad msg: #{msg}" unless msg.is_a? String
-    raise "bad host: #{host}" unless host.is_a?(String) &&
-                                     host.match(/(?:\d{1,3}\.){3}\d{1,3}/)
-    raise "bad port: #{port}" unless port.is_a?(Integer)
-    u = UDPSocket.new
-    u.bind('', 6882) # number not import. todo: if bind fails, switch port
-    u.connect host, port
-    u.send msg, 0 # zero is some flags we don't need
-    response = u.recvfrom buf_size # ruby's default is 64k
-    u.close
-    response.first
-  end
-end
-
 class HttpTrackerRequest
   def announce
     params = { :info_hash  => @metainfo.info_hash,
