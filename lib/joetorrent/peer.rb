@@ -9,6 +9,7 @@ class Peer
   attr_accessor :socket
   attr_accessor :recd_messages
   attr_accessor :pieces
+  attr_accessor :to_rate, :from_rate # "upload" and "download"
   def initialize ip, port, metainfo
     @ip, @port = ip, port
     @metainfo = metainfo
