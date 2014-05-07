@@ -2,6 +2,7 @@ require 'socket'
 
 class Peer
   attr_accessor :ip, :port
+  attr_accessor :inport, :export
   attr_accessor :metainfo
   attr_accessor :am_choking, :am_interested
   attr_accessor :peer_choking, :peer_interested
@@ -20,6 +21,20 @@ class Peer
   # this blocks until it connects; raises if it times out
   def connect_socket timeout=1
     @socket = Socket.new( Socket::AF_INET, Socket::SOCK_STREAM, 0 )
+
+    begin
+      @inport = rand(20_000..30_000)
+      puts 'binding'
+      socket.bind( Socket.pack_sockaddr_in( inport, '' ) )
+      puts 'bound'
+    rescue Errno::EADDRINUSE
+      retry
+    end
+
+    @export = NatPMP.request_mapping( inport, :tcp )[:export]
+
+    puts self.to_s + " #{inport} #{export}"
+
     begin
       socket.connect_nonblock Socket.pack_sockaddr_in( @port, @ip )
     rescue IO::WaitWritable
