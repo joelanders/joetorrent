@@ -50,6 +50,17 @@ class Message
     [1+bitfield.length].pack('L>') + "\x05" + bitfield
   end
 
+  # bitfield argument is actually a string
+  def self.bitfield_to_indices bitfield, num_pieces
+    raise "bitfield not even number of bytes" unless bitfield.length % 8 == 0
+    raise "num_pieces > bitfield.length" if num_pieces > bitfield.length
+    indices = []
+    (0..num_pieces).each do |index|
+      indices << index if bitfield[index] == "1"
+    end
+    indices
+  end
+
   # offset is the starting position of the requested block
   # within the piece.
   def self.request piece_index, offset, block_length

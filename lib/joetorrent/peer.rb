@@ -8,6 +8,7 @@ class Peer
   attr_accessor :peer_choking, :peer_interested
   attr_accessor :socket
   attr_accessor :recd_messages
+  attr_accessor :pieces
   def initialize ip, port, metainfo
     @ip, @port = ip, port
     @metainfo = metainfo
@@ -16,6 +17,7 @@ class Peer
     @peer_choking = true
     @peer_interested = false
     @recd_messages = []
+    @pieces = [] # indices of the pieces this peer has
   end
 
   # this blocks until it connects; raises if it times out
@@ -69,9 +71,18 @@ class Peer
           socket.write Message.keep_alive
         end
         puts "recording message..."
-        recd_messages << [Time.now, msg]
+        record_message msg
       end
     end
+  end
+
+  def record_message msg
+    #todo: this is hacky
+    if msg[0] == "\x05" # bitfield message
+      pieces = Message.bitfield_to_indices(msg[1..-1], metainfo.num_pieces)
+    end
+
+    recd_messages << [Time.now, msg]
   end
 
   def stop_event_loop

@@ -64,6 +64,24 @@ describe Message do
     end
   end
 
+  describe ".bitfield_to_indices" do
+    it "should raise when number of bits isn't multiple of 8" do
+      expect {Message.bitfield_to_indices( "0000000", 4 )}.to raise_error
+    end
+    it "should raise when number of pieces exceeds number of bits" do
+      expect {Message.bitfield_to_indices( "00000000", 9 )}.to raise_error
+    end
+    it "0 of 1 piece" do
+      Message.bitfield_to_indices( "00000000", 1 ).should eq( [] )
+    end
+    it "1 of 1 piece" do
+      Message.bitfield_to_indices( "10000000", 1 ).should eq( [0] )
+    end
+    it "3 of 4 pieces" do
+      Message.bitfield_to_indices( "10110000", 4 ).should eq( [0, 2, 3] )
+    end
+  end
+
   # identical to .cancel except for message id
   describe ".request" do
     it "encodes piece_index, offset, block_length" do
