@@ -39,23 +39,28 @@ describe Message do
     end
   end
 
+  #todo: fix this horrible encoding crap
   describe ".bitfield" do
     it "single piece bitfield" do
-      Message.bitfield( [0], 1 ).should eq( [2].pack('L>') + "\x05\x80" )
-      Message.bitfield( [], 1 ).should eq( [2].pack('L>') + "\x05\x00" )
+      have_piece = ([2].pack('L>') + "\x05\x80").force_encoding("BINARY") 
+      Message.bitfield( [0], 1 ).should eq(have_piece)
+      dont_have_piece = ([2].pack('L>') + "\x05\x00").force_encoding("BINARY")
+      Message.bitfield( [], 1 ).should eq(dont_have_piece)
     end
     it "single byte (8 pieces) bitfield" do
+      expected = ([2].pack('L>') + "\x05\xb8").force_encoding("BINARY")
       Message.bitfield( [0, 3, 2, 4], 8 ).
-        should eq( [2].pack('L>') + "\x05\xb8" ) # 0b10111000 = 0xb8
+        should eq(expected) # 0b10111000 = 0xb8
     end
     it "two byte (12 pieces) bitfield" do
+      expected = ([3].pack('L>') + "\x05\x80\x20").force_encoding("BINARY")
       Message.bitfield( [0, 10], 12 ).
-        should eq( [3].pack('L>') + "\x05\x80\x20" ) # 0b10111000 = 0xb8
+        should eq(expected) # 0b10111000 = 0xb8
     end
     it "12 byte (90 pieces) bitfield" do
+      expected = ([13].pack('L>') + "\x05\x40\x01" + "\x00"*9 + "\xc0").force_encoding("BINARY")
       Message.bitfield( [1, 15, 88, 89], 90 ).
-        should eq( [13].pack('L>') +
-                   "\x05\x40\x01" + "\x00"*9 + "\xc0" )
+        should eq(expected)
     end
   end
 
