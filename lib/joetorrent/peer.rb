@@ -26,14 +26,10 @@ class Peer
   def connect_socket timeout=1
     @socket = Socket.new( Socket::AF_INET, Socket::SOCK_STREAM, 0 )
 
-    begin
-      @inport = rand(20_000..30_000)
-      puts 'binding'
-      socket.bind( Socket.pack_sockaddr_in( inport, '' ) )
-      puts 'bound'
-    rescue Errno::EADDRINUSE
-      retry
-    end
+    puts 'binding'
+    socket.bind( Socket.pack_sockaddr_in( 0, '' ) )
+    @inport = socket.local_address.ip_port
+    puts 'bound'
 
     #@export = NatPMP.request_mapping( inport, :tcp )[:export]
 
