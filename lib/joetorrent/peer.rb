@@ -10,6 +10,7 @@ class Peer
   attr_accessor :recd_messages
   attr_accessor :pieces
   attr_accessor :to_rate, :from_rate # "upload" and "download"
+  attr_accessor :thread
   def initialize ip, port, metainfo
     @ip, @port = ip, port
     @metainfo = metainfo
@@ -34,9 +35,9 @@ class Peer
       retry
     end
 
-    @export = NatPMP.request_mapping( inport, :tcp )[:export]
+    #@export = NatPMP.request_mapping( inport, :tcp )[:export]
 
-    puts self.to_s + " #{inport} #{export}"
+    #puts self.to_s + " #{inport} #{export}"
 
     begin
       socket.connect_nonblock Socket.pack_sockaddr_in( @port, @ip )
@@ -79,9 +80,9 @@ class Peer
 
   def record_message msg
     #todo: this is hacky
-    if msg[0] == "\x05" # bitfield message
-      pieces = Message.bitfield_to_indices(msg[1..-1], metainfo.num_pieces)
-    end
+    #if msg[0] == "\x05".b # bitfield message
+    #  pieces = Message.bitfield_to_indices(msg[1..-1], metainfo.num_pieces)
+    #end
 
     recd_messages << [Time.now, msg]
   end
@@ -108,7 +109,7 @@ class Handshake
 
     peer.socket.write msg
 
-    @reply = ''.force_encoding Encoding::BINARY
+    @reply = ''.b
     while IO.select([peer.socket], [], [], 5) && @reply.length < 68
       char = peer.socket.read 1
       break if char.nil? # EOF; we got dropped
@@ -118,7 +119,7 @@ class Handshake
   end
 
   def msg
-    msg = ''
+    msg = ''.b
     msg += [19].pack 'C' # aka "\x13", length of next string
     msg += 'BitTorrent protocol' # do you speak it?!
     msg += [0].pack 'Q>' # 8 reserved bytes

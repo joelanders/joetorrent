@@ -32,7 +32,7 @@ end
 
 # first we have to get a connection id, then we can do the announce
 class UdpTrackerRequest
-  CON_REQ_ID   = "\x00\x00\x04\x17\x27\x10\x19\x80"
+  CON_REQ_ID   = "\x00\x00\x04\x17\x27\x10\x19\x80".b
   CON_REQ_ACT  = [0].pack('L>') # 0 in 32-bit unsigned big-endian
   ANN_ACT      = [1].pack('L>')
   ANN_EVT_NONE = [0].pack('L>')
@@ -81,7 +81,7 @@ class UdpTrackerRequest
   end
 
   def ann_req
-    req = ""
+    req = "".b
     req += @connection_id
     req += ANN_ACT
     req += random_transaction_id

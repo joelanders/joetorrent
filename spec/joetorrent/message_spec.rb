@@ -4,45 +4,45 @@ require 'spec_helper'
 describe Message do
   describe ".keep_alive" do
     it "is always the same message" do
-      Message.keep_alive.should eq "\x00\x00\x00\x00"
+      Message.keep_alive.should eq "\x00\x00\x00\x00".b
     end
   end
 
   describe ".choke" do
     it "is always the same message" do
-      Message.choke.should eq "\x00\x00\x00\x01\x00"
+      Message.choke.should eq "\x00\x00\x00\x01\x00".b
     end
   end
 
   describe ".unchoke" do
     it "is always the same message" do
-      Message.unchoke.should eq "\x00\x00\x00\x01\x01"
+      Message.unchoke.should eq "\x00\x00\x00\x01\x01".b
     end
   end
 
   describe ".interested" do
     it "is always the same message" do
-      Message.interested.should eq "\x00\x00\x00\x01\x02"
+      Message.interested.should eq "\x00\x00\x00\x01\x02".b
     end
   end
 
   describe ".not_interested" do
     it "is always the same message" do
-      Message.not_interested.should eq "\x00\x00\x00\x01\x03"
+      Message.not_interested.should eq "\x00\x00\x00\x01\x03".b
     end
   end
 
   describe ".have" do
     it "encodes a 32-bit piece index" do
-      Message.have(  0).should eq "\x00\x00\x00\x05\x04\x00\x00\x00\x00"
-      Message.have(256).should eq "\x00\x00\x00\x05\x04\x00\x00\x01\x00"
+      Message.have(  0).should eq "\x00\x00\x00\x05\x04\x00\x00\x00\x00".b
+      Message.have(256).should eq "\x00\x00\x00\x05\x04\x00\x00\x01\x00".b
     end
   end
 
   #todo: fix this horrible encoding crap
   describe ".bitfield" do
     it "single piece bitfield" do
-      have_piece = ([2].pack('L>') + "\x05\x80").force_encoding("BINARY") 
+      have_piece = ([2].pack('L>') + "\x05\x80").force_encoding("BINARY")
       Message.bitfield( [0], 1 ).should eq(have_piece)
       dont_have_piece = ([2].pack('L>') + "\x05\x00").force_encoding("BINARY")
       Message.bitfield( [], 1 ).should eq(dont_have_piece)

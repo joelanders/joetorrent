@@ -1,27 +1,26 @@
 class Message
   def self.keep_alive
-    [0].pack 'L>'
+    [0].pack('L>')
   end
 
   def self.choke
-    [1].pack('L>') + "\x00"
+    [1, 0].pack('L>C')
   end
 
   def self.unchoke
-    [1].pack('L>') + "\x01"
+    [1, 1].pack('L>C')
   end
 
   def self.interested
-    [1].pack('L>') + "\x02"
+    [1, 2].pack('L>C')
   end
 
   def self.not_interested
-    [1].pack('L>') + "\x03"
+    [1, 3].pack('L>C')
   end
 
   def self.have piece_index
-    [5].pack('L>') + "\x04" +
-      [piece_index].pack('L>')
+    [5, 4, piece_index].pack('L>CL>')
   end
 
   # num_pieces is total number of pieces in the torrent
@@ -47,7 +46,7 @@ class Message
       bigint = bigint >> 8
     end
 
-    [1+bitfield.length].pack('L>') + "\x05" + bitfield
+    [1+bitfield.length, 5].pack('L>C') + bitfield
   end
 
   # bitfield argument is actually a string
