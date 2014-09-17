@@ -113,4 +113,11 @@ describe Message do
                   [2**14].pack('L>')
     end
   end
+
+  describe ".decomp_request" do
+    it "pulls three 32-bit integers from a string" do
+      msg = "\x00\x00\x00H\x00\x00\x00\x00\x00\x00@\x00".b
+      Message.decomp_request(msg).should eq [72, 0, 2**14]
+    end
+  end
 end

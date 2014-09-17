@@ -26,10 +26,8 @@ class Peer
   def connect_socket timeout=1
     @socket = Socket.new( Socket::AF_INET, Socket::SOCK_STREAM, 0 )
 
-    puts 'binding'
     socket.bind( Socket.pack_sockaddr_in( 0, '' ) )
     @inport = socket.local_address.ip_port
-    puts 'bound'
 
     #@export = NatPMP.request_mapping( inport, :tcp )[:export]
 
@@ -48,27 +46,21 @@ class Peer
 
   def do_handshake
     @handshake_reply = Handshake.new(self).shake
-    recd_messages << [Time.now, @handshake_reply]
+    recd_messages << {:time => Time.now, :handshake => @handshake_reply}
   end
 
   def start_event_loop
     @thread = Thread.new do
       puts Thread.current
       loop do
-        puts "blocking..."
         IO.select [socket], [], []
-        puts "reading..."
         length = socket.read(4).unpack('L>').first
-        puts "length: #{length}"
         if length > 0
-          puts "reading remainder..."
           msg = socket.read(length)
         else
           msg = :keep_alive
-          puts "sending keep_alive..."
           socket.write Message.keep_alive
         end
-        puts "recording message..."
         record_message msg
       end
     end
@@ -76,11 +68,23 @@ class Peer
 
   def record_message msg
     #todo: this is hacky
-    #if msg[0] == "\x05".b # bitfield message
-    #  pieces = Message.bitfield_to_indices(msg[1..-1], metainfo.num_pieces)
-    #end
+    if msg[0] == "\x00".b
+      decoded = :choke
+    elsif msg[0] == "\x01".b
+      decoded = :unchoke
+    elsif msg[0] == "\x02".b
+      decoded = :interested
+    elsif msg[0] == "\x03".b
+      decoded = :uninterested
+    elsif msg[0] == "\x05".b
+      pieces = Message.bitfield_to_indices(msg[1..-1], metainfo.num_pieces)
+      decoded = {:pieces => pieces}
+    elsif msg[0] == "\x06".b # request
+      piece, start, length = Message.decomp_request(msg[1..-1])
+      decoded = {:request => piece, :start => start, :length => length}
+    end
 
-    recd_messages << [Time.now, msg]
+    recd_messages << {:time => Time.now, :msg => msg, :decoded => decoded}
   end
 
   def stop_event_loop

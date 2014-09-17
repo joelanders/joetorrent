@@ -53,5 +53,17 @@ pr.recd_messages.last
     "\a\x00\x00\x00\x00\x00\x00\x00\x00%PDF-1.3\n%\xE7\xF3\xCF\xD3\n2"]
 ````
 
+Got a bit more protocol going; can lure another client into requesting pieces:
+````
+[1] pry(main)> puts pr.recd_messages
+{:time=>2014-09-17 17:42:36 +0200, :handshake=>"\x13BitTorrent protocol\x00\x00\x00\x00\x00\x10\x00\x05BCz\x1A\xC2\xB9fz\xBD\x85xt\xD01v\xD1\xFA\xB6t\xF6-TR2840-w4ypr1729owj"}
+{:time=>2014-09-17 17:42:36 +0200, :msg=>"\x01", :decoded=>:unchoke}
+{:time=>2014-09-17 17:42:46 +0200, :msg=>"\x02", :decoded=>:interested}
+{:time=>2014-09-17 17:42:46 +0200, :msg=>"\x06\x00\x00\x00H\x00\x00\x00\x00\x00\x00@\x00", :decoded=>{:request=>72, :start=>0, :length=>16384}}
+{:time=>2014-09-17 17:42:46 +0200, :msg=>"\x06\x00\x00\x00H\x00\x00@\x00\x00\x00@\x00", :decoded=>{:request=>72, :start=>16384, :length=>16384}}
+{:time=>2014-09-17 17:42:46 +0200, :msg=>"\x06\x00\x00\x00H\x00\x00\x80\x00\x00\x00@\x00", :decoded=>{:request=>72, :start=>32768, :length=>16384}}
+{:time=>2014-09-17 17:42:46 +0200, :msg=>"\x06\x00\x00\x00H\x00\x00\xC0\x00\x00\x00$\x88", :decoded=>{:request=>72, :start=>49152, :length=>9352}}
+````
+
 
 GPLv3 license because I feel like it.

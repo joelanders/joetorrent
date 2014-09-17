@@ -69,6 +69,12 @@ class Message
       [block_length].pack('L>')
   end
 
+  def self.decomp_request msg
+    raise "bad message #{msg}" unless msg.length == 12
+    # index, offset, length
+    msg.unpack('L>L>L>')
+  end
+
   # not a metainfo "piece," this is actually a "block"
   def self.piece piece_index, offset, block_data
     [9+block_data.length].pack('L>') + "\x07" +
