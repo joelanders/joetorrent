@@ -25,7 +25,9 @@ class Message
 
   # num_pieces is total number of pieces in the torrent
   # nasty as hell; find a better way sometime.
+  # indices are zero-indexed...
   def self.bitfield piece_indices, num_pieces
+    raise 'bad' if piece_indices.any? {|i| i> num_pieces}
     bigint = 0
     piece_indices.each do |piece_index|
       bigint |= (1<<piece_index)
@@ -51,13 +53,16 @@ class Message
 
   # bitfield argument is actually a string
   def self.bitfield_to_indices bitfield, num_pieces
-    raise "bitfield not even number of bytes" unless bitfield.length % 8 == 0
-    raise "num_pieces > bitfield.length" if num_pieces > bitfield.length
+    bytes = bitfield.unpack 'C*'
     indices = []
-    (0..num_pieces).each do |index|
-      indices << index if bitfield[index] == "1"
+    bytes.each_with_index do |byte, byte_index|
+      (0..7).each do |bit|
+        if (byte & (1<<bit)) > 0
+          indices << (7 - bit) + (8*byte_index)
+        end
+      end
     end
-    indices
+    indices.sort
   end
 
   # offset is the starting position of the requested block
