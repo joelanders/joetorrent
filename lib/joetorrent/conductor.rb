@@ -1,24 +1,43 @@
+require 'joetorrent'
+require 'socket'
+require 'pry'
+
 class Conductor
-  attr_accessor :tracker
-  def initialize tracker
-    @tracker = tracker
+  attr_accessor :metainfo, :tracker
+  def initialize(filename)
+    @metainfo = Metainfo.from_file filename
+    @tracker = @metainfo.tracker
   end
-  def re_adjust
-    # when not seeding
-      # get top four interested peers from whom we DL the fastest
-      # get top interested peer to whom we UL the fastest
-      # unchoke fastest 4 of those 5
-      # unchoke uninterested peers with faster UL rates
-    # when seeding
-      # unchoke top four interested peers to whom we UL the fastest
-    # pick some random leecher regardless of speed to be one of the four leechers?
-  def peers
-    tracker.peers
+
+  def announce
+    tracker.announce
   end
-  def interested_peers
-    peers.select {|peer| peer.peer_interested?}
+
+  def start_server
+    server = TCPServer.new 6881
+    loop do
+      Thread.start(server.accept) do |client|
+        puts 'got someone'
+        ip = client.connect_address.ip_address
+        port = client.connect_address.ip_port
+        p = Peer.new ip, port, metainfo
+        p.socket = client
+        p.receive_and_send_handshake
+        p.socket.write Message.bitfield((0...metainfo.num_pieces).to_a,
+                                        metainfo.num_pieces)
+        p.start_event_loop
+        binding.pry
+      end
+    end
   end
-  def top_four_downloaders
-    interested_peers.sort_by {|peer| from_rate}[0...4]
+
+  def start_client
+    p = Peer.new '127.0.0.1', 6881, metainfo
+    p.connect_socket
+    p.send_and_receive_handshake
+    p.socket.write Message.bitfield([], metainfo.num_pieces)
+    p.start_event_loop
+    binding.pry
   end
+
 end

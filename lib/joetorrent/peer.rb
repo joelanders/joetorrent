@@ -44,14 +44,22 @@ class Peer
     @socket
   end
 
-  def do_handshake
-    @handshake_reply = Handshake.new(self).shake
+  def send_and_receive_handshake
+    h = Handshake.new(self)
+    h.shake
+    @handshake_reply = h.receive_shake
+    recd_messages << {:time => Time.now, :handshake => @handshake_reply}
+  end
+
+  def receive_and_send_handshake
+    h = Handshake.new(self)
+    @handshake_reply = h.receive_shake
+    h.shake
     recd_messages << {:time => Time.now, :handshake => @handshake_reply}
   end
 
   def start_event_loop
     @thread = Thread.new do
-      puts Thread.current
       loop do
         IO.select [socket], [], []
         length = socket.read(4).unpack('L>').first
@@ -108,12 +116,28 @@ class Handshake
     raise "socket not writable" unless IO.select [], [peer.socket], [], 0
 
     peer.socket.write msg
+  end
 
+#  def receive_shake
+#    @reply = ''.b
+#    while IO.select([peer.socket], [], [], 5) && @reply.length < 68
+#      char = peer.socket.read 1
+#      break if char.nil? # EOF; we got dropped
+#      @reply += char
+#    end
+#    @reply
+#  end
+
+  def receive_shake
     @reply = ''.b
-    while IO.select([peer.socket], [], [], 5) && @reply.length < 68
-      char = peer.socket.read 1
-      break if char.nil? # EOF; we got dropped
-      @reply += char
+    begin
+      while @reply.length < 68
+        char = peer.socket.read_nonblock 1
+        break if char.nil?
+        @reply += char
+      end
+    rescue IO::WaitReadable
+      retry if IO.select([peer.socket], [], [], 5)
     end
     @reply
   end
