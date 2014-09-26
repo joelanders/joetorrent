@@ -11,15 +11,17 @@ class Peer
   attr_accessor :pieces
   attr_accessor :to_rate, :from_rate # "upload" and "download"
   attr_accessor :thread
-  def initialize ip, port, metainfo
+  attr_accessor :conductor
+  def initialize ip, port, conductor
     @ip, @port = ip, port
-    @metainfo = metainfo
+    @conductor = conductor
+    @metainfo = conductor.metainfo
     @am_choking = true
     @am_interested = false
     @peer_choking = true
     @peer_interested = false
     @recd_messages = []
-    @pieces = [] # indices of the pieces this peer has
+    @peer_pieces = []
   end
 
   # this blocks until it connects; raises if it times out
@@ -113,9 +115,18 @@ class Peer
       raise "failed to receive request message" if message.nil?
       piece, start, length = Message.decomp_request message
       decoded = {:request => piece, :start => start, :length => length}
+      socket.write Message.piece(piece,
+                                 start,
+                                 @conductor.file_pieces[piece][start, length])
     when 7
       # they're sending a piece of a piece (we'll call it a "block")
-      decoded = {:piece => nil}
+      # first read piece index and start offset
+      piece, start = socket.read_with_timeout(8, 5).unpack('L>L>')
+      block = socket.read_with_timeout(length - 9, 5)
+      decoded = {:piece => piece, :start => start, :length => block.length}
+      # geto hack only works if block length = piece length
+      @conductor.file_pieces[piece] = block
+      @conductor.my_pieces << piece
     when 8
       decoded = :cancel
     when 9
