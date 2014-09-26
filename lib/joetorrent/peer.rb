@@ -23,7 +23,7 @@ class Peer
   end
 
   # this blocks until it connects; raises if it times out
-  def connect_socket timeout=1
+  def connect_socket timeout=10
     @socket = Socket.new( Socket::AF_INET, Socket::SOCK_STREAM, 0 )
 
     socket.bind( Socket.pack_sockaddr_in( 0, '' ) )
@@ -48,12 +48,14 @@ class Peer
     h = Handshake.new(self)
     h.shake
     @handshake_reply = h.receive_shake
+    raise "got no shake after we shook" if @handshake_reply.nil?
     recd_messages << {:time => Time.now, :handshake => @handshake_reply}
   end
 
   def receive_and_send_handshake
     h = Handshake.new(self)
     @handshake_reply = h.receive_shake
+    raise "got no shake" if @handshake_reply.nil?
     h.shake
     recd_messages << {:time => Time.now, :handshake => @handshake_reply}
   end
@@ -62,37 +64,67 @@ class Peer
     @thread = Thread.new do
       loop do
         IO.select [socket], [], []
-        length = socket.read(4).unpack('L>').first
-        if length > 0
-          msg = socket.read(length)
-        else
-          msg = :keep_alive
-          socket.write Message.keep_alive
+        length = socket.read_with_timeout(4, 5).unpack('L>').first
+        if length.nil?
+          # handle EOF
+          raise 'eof'
+        else # we have an actual message
+          handle_message length
         end
-        record_message msg
       end
     end
   end
 
-  def record_message msg
-    #todo: this is hacky
-    if msg[0] == "\x00".b
-      decoded = :choke
-    elsif msg[0] == "\x01".b
-      decoded = :unchoke
-    elsif msg[0] == "\x02".b
-      decoded = :interested
-    elsif msg[0] == "\x03".b
-      decoded = :uninterested
-    elsif msg[0] == "\x05".b
-      pieces = Message.bitfield_to_indices(msg[1..-1], metainfo.num_pieces)
-      decoded = {:pieces => pieces}
-    elsif msg[0] == "\x06".b # request
-      piece, start, length = Message.decomp_request(msg[1..-1])
-      decoded = {:request => piece, :start => start, :length => length}
+  # TODO: raise proper exceptions
+  def handle_message length
+    if length == 0
+      socket.write Message.keep_alive
+      return :keep_alive
     end
 
-    recd_messages << {:time => Time.now, :msg => msg, :decoded => decoded}
+    msg_code = socket.read_with_timeout(1, 5).unpack('C').first
+    raise "got no message code" if msg_code.nil?
+
+    case msg_code
+    when 0
+      decoded = :choke
+      raise "bad :choke length: #{length}" unless length == 1
+    when 1
+      decoded = :unchoke
+      raise "bad :unchoke length: #{length}" unless length == 1
+    when 2
+      decoded = :interested
+      raise "bad :interested length: #{length}" unless length == 1
+    when 3
+      decoded = :uninterested
+      raise "bad :uninterested length: #{length}" unless length == 1
+    when 4
+      piece = socket.read_with_timeout(4, 5).unpack('L>').first
+      raise "failed to receive :have message" if piece.nil?
+      decoded = {:have => piece}
+    when 5
+      bitfield = socket.read_with_timeout(length - 1, 5)
+      raise "failed to receive bitfield message" if bitfield.nil?
+      pieces = Message.bitfield_to_indices(bitfield, metainfo.num_pieces)
+      decoded = {:pieces => pieces}
+    when 6
+      raise "request message has length #{length}" unless length == 13
+      message = socket.read_with_timeout(length - 1, 5)
+      raise "failed to receive request message" if message.nil?
+      piece, start, length = Message.decomp_request message
+      decoded = {:request => piece, :start => start, :length => length}
+    when 7
+      # they're sending a piece of a piece (we'll call it a "block")
+      decoded = {:piece => nil}
+    when 8
+      decoded = :cancel
+    when 9
+      decoded = :some_dht_thing
+    else
+      decoded = :unhandled
+    end
+
+    recd_messages << {:time => Time.now, :decoded => decoded}
   end
 
   def stop_event_loop
@@ -118,28 +150,10 @@ class Handshake
     peer.socket.write msg
   end
 
-#  def receive_shake
-#    @reply = ''.b
-#    while IO.select([peer.socket], [], [], 5) && @reply.length < 68
-#      char = peer.socket.read 1
-#      break if char.nil? # EOF; we got dropped
-#      @reply += char
-#    end
-#    @reply
-#  end
-
+  # TODO: callers need to handle a possible nil response
   def receive_shake
-    @reply = ''.b
-    begin
-      while @reply.length < 68
-        char = peer.socket.read_nonblock 1
-        break if char.nil?
-        @reply += char
-      end
-    rescue IO::WaitReadable
-      retry if IO.select([peer.socket], [], [], 5)
-    end
-    @reply
+    # 68-byte handshake
+    peer.socket.read_with_timeout 68, 5
   end
 
   def msg

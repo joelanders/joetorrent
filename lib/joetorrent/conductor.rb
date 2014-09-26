@@ -7,6 +7,7 @@ class Conductor
   def initialize(filename)
     @metainfo = Metainfo.from_file filename
     @tracker = @metainfo.tracker
+    Thread.abort_on_exception = true
   end
 
   def announce
